@@ -1,51 +1,65 @@
 package main
 
 import (
+	"flag"
 	"fmt"
+
 )
 
 func main() {
-	num1 := getFloat("Enter first number: ")
-	operator := getOperator("Enter an operator (+, -, *, /): ")
-	num2 := getFloat("Enter second number: ")
+	n := flag.Int("n", 1, "Number of quotes to fetch")
+	save := flag.Bool("save", false, "Save quotes to quotes.json")
+	load := flag.Bool("load", false, "Load and display saved quotes from quotes.json")
+	search := flag.String("search", "", "Search saved quotes by keyword")
+	flag.Parse()
 
-	result, err := calculate(num1, num2, operator)
-	if err != nil {
-		fmt.Println("Error:", err)
-		return
-	}
-
-	fmt.Printf("Result: %.2f\n", result)
-}
-
-func getFloat(prompt string) float64 {
-	var num float64
-	fmt.Print(prompt)
-	fmt.Scanln(&num)
-	return num
-}
-
-func getOperator(prompt string) string {
-	var op string
-	fmt.Print(prompt)
-	fmt.Scanln(&op)
-	return op
-}
-
-func calculate(a, b float64, op string) (float64, error) {
-	switch op {
-	case "+":
-		return a + b, nil
-	case "-":
-		return a - b, nil
-	case "*":
-		return a * b, nil
-	case "/":
-		if b == 0 {
-			return 0, fmt.Errorf("division by zero")
+	switch {
+	case *search != "":
+		quotes, err := loadQuotesFromFile("quotes.json")
+		if err != nil {
+			fmt.Println("Error loading quotes:", err)
+			return
 		}
-		return a / b, nil
+		results := searchQuotes(quotes, *search)
+		if len(results) == 0 {
+			fmt.Println("No matching quotes found.")
+			return
+		}
+		fmt.Printf(" Results for \"%s\":\n", *search)
+		for i, q := range results {
+			fmt.Printf("\n%d. \"%s\"\n   — %s\n", i+1, q.Content, q.Author)
+		}
+	case *load:
+		quotes, err := loadQuotesFromFile("quotes.json")
+		if err != nil {
+			fmt.Println("Error loading quotes:", err)
+			return
+		}
+		if len(quotes) == 0 {
+			fmt.Println("No saved quotes found.")
+			return
+		}
+		fmt.Println(" Saved Quotes:")
+		for i, q := range quotes {
+			fmt.Printf("\n%d. \"%s\"\n   — %s\n", i+1, q.Content, q.Author)
+		}
 	default:
-		return 0, fmt.Errorf("invalid operator")
+		var collected []*Quote
+		for i := 0; i < *n; i++ {
+			quote, err := fetchQuote()
+			if err != nil {
+				fmt.Println("Error:", err)
+				continue
+			}
+			fmt.Printf("\n \"%s\"\n   — %s\n", quote.Content, quote.Author)
+			collected = append(collected, quote)
+		}
+		if *save {
+			if err := saveQuotesToFile(collected, "quotes.json"); err != nil {
+				fmt.Println("Error saving quotes:", err)
+			} else {
+				fmt.Println(" Quotes saved to quotes.json")
+			}
+		}
 	}
 }
